@@ -1,4 +1,4 @@
-package com.cinemasyndicate
+package com.anonymous.Cinemasyndicate
 
 import android.app.Application
 import android.content.res.Configuration

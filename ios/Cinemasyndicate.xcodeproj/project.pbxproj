@@ -257,12 +257,14 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.name.Cinemasyndicate;
-				PRODUCT_NAME = Cinemasyndicate;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.Cinemasyndicate";
+				PRODUCT_NAME = "Cinemasyndicate";
 				SWIFT_OBJC_BRIDGING_HEADER = "Cinemasyndicate/Cinemasyndicate-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
+				TARGETED_DEVICE_FAMILY = "1";
+				CODE_SIGN_ENTITLEMENTS = Cinemasyndicate/Cinemasyndicate.entitlements;
 			};
 			name = Debug;
 		};
@@ -284,11 +286,13 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.name.Cinemasyndicate;
-				PRODUCT_NAME = Cinemasyndicate;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.Cinemasyndicate";
+				PRODUCT_NAME = "Cinemasyndicate";
 				SWIFT_OBJC_BRIDGING_HEADER = "Cinemasyndicate/Cinemasyndicate-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
+				TARGETED_DEVICE_FAMILY = "1";
+				CODE_SIGN_ENTITLEMENTS = Cinemasyndicate/Cinemasyndicate.entitlements;
 			};
 			name = Release;
 		};

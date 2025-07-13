@@ -1,4 +1,4 @@
-package com.cinemasyndicate
+package com.anonymous.Cinemasyndicate
 
 import android.os.Build
 import android.os.Bundle
