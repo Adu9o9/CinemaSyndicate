@@ -1,41 +1,49 @@
 import React from 'react'
 import Home from '../src/pages/TabPages/Home';
+import Community from '../src/pages/TabPages/Community';
+import RandomMovie from '../src/pages/TabPages/RandomMovie';
+import Profile from '../src/pages/TabPages/Profile';
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 const Tab = createBottomTabNavigator();
 const Tabnavigator = () => {
-  let isKeyboardVisible = false
   return (
-    <>
     <Tab.Navigator
-        screenOptions={({ route }) => {
+        screenOptions={({ route }) => ({
+          tabBarIcon: ({ color, size }) => {
           let iconName;
-          if (route.name === "Home") iconName = "home-outline";
-      
-
-          return {
-            
-            tabBarIcon: ({ color, size }) => (
-              <Icon name={iconName} size={size} color={color} />
-            ),
-            headerShown: false,
-            //tabBarHideOnKeyboard: true,
-            tabBarStyle: isKeyboardVisible
-            
-      ? { display: "none",height:0 } // Hides instantly
-      : {
-          height: 55,
-          padding: "auto",
+            if (route.name === "Home") {
+            iconName = "home-variant-outline";
+          } else if (route.name === "Community") {
+            iconName = "forum-outline";
+          } else if (route.name === "RandomMovie") {
+            iconName = "shuffle-variant";
+          } else if (route.name === "Profile") {
+            iconName = "account-outline";
+          }  
+           return <Icon name={iconName} size={33} color={color} />;
         },
-          };
-        }}
-        initialRouteName="Home"
-      >
+        headerShown: false,
+        tabBarStyle: {
+          height: 60, 
+          paddingBottom: 5,
+          paddingTop: 7,
+          backgroundColor: '#252930', //matching with top header
+          borderTopWidth: 0, // Removes the default top border line
+      },
+        tabBarActiveTintColor: '#FFFFFF', 
+        tabBarInactiveTintColor: '#8899A6',
+        tabBarShowLabel: false, 
+      })}
+      initialRouteName="Home"
+        >
         <Tab.Screen name="Home" component={Home} />
-       
+      <Tab.Screen name="Community" component={Community} />
+      <Tab.Screen name="RandomMovie" component={RandomMovie} />
+      <Tab.Screen name="Profile" component={Profile} />
     </Tab.Navigator>
-    </>
-  )
-}
+  );
+};
+           
 
 export default Tabnavigator
