@@ -1,13 +1,36 @@
 import { useState } from 'react';
 import { ActivityIndicator, Button, ScrollView, StyleSheet, Text, TextInput, View, Image, TouchableOpacity} from 'react-native';
-
+import { createClient } from '@supabase/supabase-js';
 import { useEffect } from 'react';
 import { supabase } from './lib/supabase';
 
-
 // export default function MovieGenerator() {
 export default function MovieGenerator() {
+  const [genres, setGenres] = useState([]); // State to hold genres from Supabase
   const [selectedGenres, setSelectedGenres] = useState([]);
+  // ... rest of your state
+
+  // This function fetches genres from your Supabase 'genres' table
+  const fetchGenres = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('genres')
+        .select('genre_id, genre_name');
+
+      if (error) throw error;
+      
+      // We map the data to the format the UI expects: {id, name}
+      const formattedGenres = data.map(g => ({ id: g.genre_id, name: g.genre_name }));
+      setGenres(formattedGenres);
+    } catch (error) {
+      console.error("Error fetching genres:", error);
+    }
+  };
+
+  // This useEffect hook runs the fetchGenres function once when the app starts
+  useEffect(() => {
+    fetchGenres();
+  }, []);
   const [minRating, setMinRating] = useState('');
   const [maxRating, setMaxRating] = useState('');
   const [startYear, setStartYear] = useState('');
@@ -23,33 +46,69 @@ export default function MovieGenerator() {
     );
   };
 
-  const fetchRandomMovie = async () => {
+const fetchRandomMovie = async () => {
     setLoading(true);
-    const apiKey = 'f99933b8f70a6dbf82e60957cf1a66bd';
-    const genreParam = selectedGenres.join(',');
-    const url = `https://api.themoviedb.org/3/discover/movie?api_key=${apiKey}&with_genres=${genreParam}&vote_average.gte=${minRating/10}&vote_average.lte=${maxRating/10}&primary_release_date.gte=${startYear}-01-01&primary_release_date.lte=${endYear}-12-31`;
+    setMovie(null); // Clear previous movie
 
     try {
-      const response = await fetch(url);
-      const data = await response.json();
-      if (data.results.length > 0) {
-        const randomIndex = Math.floor(Math.random() * data.results.length);
-        setMovie(data.results[randomIndex]);
-      } else {
-        setMovie(null);
-      }
-    } catch (error) {
-      setMovie(null);
-    }
-    setLoading(false);
-  };
+      // Step A: Find all 'movie_id's linked to the selected 'genre_id's
+      const { data: genreLinks, error: genreError } = await supabase
+        .from('movie_genres')
+        .select('movie_id')
+        .in('genre_id', selectedGenres);
+      
+      if (genreError) throw genreError;
 
+      if (!genreLinks || genreLinks.length === 0) {
+        throw new Error("No movies found for the selected genres.");
+      }
+
+      // Extract the unique movie IDs from the result
+      const candidateMovieIds = [...new Set(genreLinks.map(link => link.movie_id))];
+
+      // Step B: Filter those movies by release year
+      const { data: filteredMovies, error: movieError } = await supabase
+        .from('movies')
+        .select('movie_id') // We only need the ID for random selection
+        .in('movie_id', candidateMovieIds)
+        .gte('release_year', startYear)
+        .lte('release_year', endYear);
+      
+      if (movieError) throw movieError;
+
+      if (!filteredMovies || filteredMovies.length === 0) {
+        throw new Error("No movies found in that year range.");
+      }
+      
+      // Step C: Pick a random movie ID from the final list
+      const randomIndex = Math.floor(Math.random() * filteredMovies.length);
+      const randomMovieId = filteredMovies[randomIndex].movie_id;
+
+      // Step D: Fetch the full details for that one random movie
+      const { data: finalMovie, error: finalError } = await supabase
+        .from('movies')
+        .select('*') // Get all columns for this movie
+        .eq('movie_id', randomMovieId)
+        .single(); // We expect only one result
+      
+      if (finalError) throw finalError;
+
+      setMovie(finalMovie);
+
+    } catch (error) {
+      console.error(error);
+      setMovie(null); // Ensure movie is null on error
+    } finally {
+      setLoading(false);
+    }
+  };
+//{genresList.map((genre) => ( replaced
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Random Movie Generator</Text>
       <Text style={styles.label}>Select Genres:</Text>
       <View style={styles.genreContainer}>
-        {genresList.map((genre) => (
+        {genres.map((genre) => (
           <TouchableOpacity
             key={genre.id}
             style={[
@@ -116,17 +175,17 @@ export default function MovieGenerator() {
       {movie && (
         <View style={styles.movieBox}>
           <Text style={styles.movieTitle}>{movie.title}</Text>
-          {movie.poster_path && (
+          {movie.poster_url && (
             <Image
-              source={{ uri: `https://image.tmdb.org/t/p/w500${movie.poster_path}` }}
+              source={{ uri: movie.poster_url }}
               style={styles.poster}
               resizeMode="contain"
             />
           )}
           <Text style={styles.release}>
-            Release: {movie.release_date} | Rating: {movie.vote_average.toFixed(1)}/10
+            Release Year: {movie.release_year}
           </Text>
-          <Text style={styles.movieDetails}>{movie.overview}</Text>
+          <Text style={styles.movieDetails}>{movie.synopsis}</Text>
         </View>
       )}
       {!loading && movie === null && (
