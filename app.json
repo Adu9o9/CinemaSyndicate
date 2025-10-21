@@ -2,9 +2,17 @@
   "expo": {
     "name": "Cinemasyndicate",
     "slug": "Cinemasyndicate",
+    "scheme": "Cinemasyndicate",
     "version": "1.0.0",
     "android": {
-      "package": "com.anonymous.Cinemasyndicate"
+      "package": "com.anonymous.Cinemasyndicate",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [{ "scheme": "Cinemasyndicate" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "ios": {
       "bundleIdentifier": "com.anonymous.Cinemasyndicate"

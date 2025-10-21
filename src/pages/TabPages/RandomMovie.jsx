@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import { ActivityIndicator, Button, ScrollView, StyleSheet, Text, TextInput, View, Image, TouchableOpacity} from 'react-native';
-import { createClient } from '@supabase/supabase-js';
-import { useEffect } from 'react';
 
-const supabaseUrl = 'https://hxtnjddgmheiyvgstblu.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh4dG5qZGRnbWhlaXl2Z3N0Ymx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI3NzEyMTUsImV4cCI6MjA2ODM0NzIxNX0.E06lYJT3Jcwgqg6ykOVYdokzWED2WBigmER-xYkrf2U';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { useEffect } from 'react';
+import { supabase } from './lib/supabase';
+
 
 // export default function MovieGenerator() {
 export default function MovieGenerator() {

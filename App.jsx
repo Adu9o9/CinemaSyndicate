@@ -1,28 +1,37 @@
-import { StatusBar } from 'expo-status-bar';
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { NavigationContainer } from "@react-navigation/native";
+import React, { useEffect } from 'react';
+import { View, StyleSheet, Button,Linking } from 'react-native';
+import { Provider, useDispatch } from 'react-redux';
+import { store } from './src/Redux/store';
+import { supabase } from './src/pages/TabPages/lib/supabase';
+import { NavigationContainer } from '@react-navigation/native';
 import UniversalNavi from './navigation/Universal';
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { setSession } from './src/Redux/AuthSlice';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+
 export default function App() {
+  const dispatch = useDispatch()
+  useEffect(() => {
+    const retrieveUser = async() => {
+      const userData = await AsyncStorage.getItem("user");
+      //console.error("User:",userData)
+      const user = JSON.parse(userData); // convert back to object
+      if(user){
+        dispatch(setSession(user))
+      }
+    }
+
+    retrieveUser()
+  }, []);
   return (
-    <SafeAreaProvider>
-      <SafeAreaView
-        style={{
-          flex: 1,backgroundColor:"black"
-        }}
-      >
-        <View style={styles.container}>
-          
-          <StatusBar style="auto" />
-          <NavigationContainer
-            
-          >
-            <UniversalNavi />
-          </NavigationContainer>
-        </View>
-      </SafeAreaView>
-    </SafeAreaProvider>
+    <SafeAreaView style={{ flex: 1, backgroundColor: 'black' }}>
+      <View style={styles.container}>
+        <NavigationContainer>
+          <UniversalNavi />
+        </NavigationContainer>
+      </View>
+    </SafeAreaView>
 
   );
 }
@@ -30,7 +39,5 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    //backgroundColor: '#fff',
-   
   },
 });
