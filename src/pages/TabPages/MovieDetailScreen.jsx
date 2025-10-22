@@ -15,6 +15,7 @@ import {
 import { useRoute, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { supabase } from './lib/supabase'; 
+import CommentSection from '../../components/CommentSection';
 
 // --- CONSTANTS ---
 const { width } = Dimensions.get('window');
@@ -204,9 +205,7 @@ const MovieDetailScreen = () => {
         {/* --- DEDICATED COMMUNITY (PLACEHOLDER) --- */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Dedicated Community</Text>
-          <View style={styles.communityPlaceholder}>
-            <Text style={styles.communityText}>Discussion and reviews for {movie.title} will be here.</Text>
-          </View>
+          <CommentSection movieId={movieId} />
         </View>
 
       </ScrollView>
