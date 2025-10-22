@@ -130,13 +130,7 @@ async function postComment({ movieId, parentCommentId = null, text, userId }) {
 
 // Upvote or downvote comment: we'll implement single-button toggles and optimistic update on client
 async function voteComment({ commentId, deltaUp = 0, deltaDown = 0 }) {
-  // use increment operator
-  const updates = {};
-  if (deltaUp !== 0) updates.upvotes = supabase.raw('upvotes + ?', [deltaUp]);
-  if (deltaDown !== 0) updates.downvotes = supabase.raw('downvotes + ?', [deltaDown]);
-
-  // Supabase JS doesn't expose raw SQL in .update; fallback: fetch then update.
-  // Simpler: fetch current counts, then update with new values (race conditions possible).
+  // fetch current counts first
   const { data: current, error: fetchErr } = await supabase
     .from('community_comments')
     .select('upvotes,downvotes')
@@ -144,6 +138,7 @@ async function voteComment({ commentId, deltaUp = 0, deltaDown = 0 }) {
     .single();
   if (fetchErr) throw fetchErr;
 
+  // update counts
   const { data, error } = await supabase
     .from('community_comments')
     .update({
@@ -157,6 +152,8 @@ async function voteComment({ commentId, deltaUp = 0, deltaDown = 0 }) {
   if (error) throw error;
   return data;
 }
+
+
 
 // Soft-delete comment: replace text with '[deleted]' and set is_deleted flag if available
 async function softDeleteComment(commentId) {
