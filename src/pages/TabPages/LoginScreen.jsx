@@ -129,8 +129,9 @@ const LoginScreen = () => {
         }
       }
 
-      dispatch(setSession(data.session));
+      dispatch(setSession({user:data.session,name:username.trim()}));
       await AsyncStorage.setItem("user", JSON.stringify(data.session));
+      await AsyncStorage.setItem("name", JSON.stringify(username.trim()));
     } catch (error) {
       Alert.alert('Error', error.message || 'Failed to sign up');
     } finally {

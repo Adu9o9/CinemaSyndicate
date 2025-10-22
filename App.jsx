@@ -12,18 +12,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function App() {
   const dispatch = useDispatch()
-  // useEffect(() => {
-  //   const retrieveUser = async() => {
-  //     const userData = await AsyncStorage.getItem("user");
-  //     //console.error("User:",userData)
-  //     const user = JSON.parse(userData); // convert back to object
-  //     if(user){
-  //       dispatch(setSession(user))
-  //     }
-  //   }
+  useEffect(() => {
+    const retrieveUser = async() => {
+      const userData = await AsyncStorage.getItem("user");
+      const userName = await AsyncStorage.getItem("name");
+      //console.error("User:",userData)
+      const user = JSON.parse(userData); // convert back to object
+      if(user){
+        dispatch(setSession({user:user,name:userName}))
+      }
+    }
 
-  //   retrieveUser()
-  // }, []);
+    retrieveUser()
+  }, []);
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: 'black' }}>
       <View style={styles.container}>

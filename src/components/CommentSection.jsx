@@ -202,7 +202,7 @@ const CommentItem = ({
     <View style={styles.commentCard}>
       <View style={styles.commentHeader}>
         <View>
-          <Text style={styles.username}>{item.profiles?.username ?? 'User'}</Text>
+          <Text style={styles.username}>{item.profiles?.username ?? item.profiles?.[0]?.username ?? 'User'}</Text>
           <Text style={styles.commentDate}>{new Date(item.comment_date).toLocaleString()}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -257,6 +257,7 @@ const CommentItem = ({
 export default function CommentSection({ movieId }) {
 
     const user = useSelector(state => state.auth.user);
+    const userName = useSelector(state => state.auth.name);
   const userId = user?.id;
   console.warn(userId) 
   const [topComments, setTopComments] = useState([]);
@@ -344,14 +345,27 @@ export default function CommentSection({ movieId }) {
       userId 
     });
 
+    // attach current user's profile info immediately
+    const commentWithProfile = {
+    ...created,
+    profiles: [{
+        user_id: user.id,
+        username: userName,
+        profile_picture_url: user.profile_picture_url ?? null,
+    }],
+    replies_preview: [],
+    };
+    console.log("userName:",userName)
+
+
     if (parentId == null) {
-      setTopComments(prev => [ { ...created, replies_preview: [] }, ...prev ]);
+    setTopComments(prev => [commentWithProfile, ...prev]);
     } else {
-      setReplyState(prev => {
+    setReplyState(prev => {
         const p = prev[parentId] || { replies: [], expanded: true };
-        return { ...prev, [parentId]: { ...p, replies: [ ...(p.replies||[]), created ], expanded: true } };
-      });
-    }
+        return { ...prev, [parentId]: { ...p, replies: [ ...(p.replies||[]), commentWithProfile ], expanded: true } };
+    });
+}
     setNewCommentText('');
   } catch (e) {
     console.error('postComment', e);
