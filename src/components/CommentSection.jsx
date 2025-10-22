@@ -211,9 +211,12 @@ const CommentItem = ({
             <Icon name="arrow-down" size={18} color="#fff" />
             <Text style={styles.voteCount}>{item.downvotes ?? 0}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => onReplyPress(item)} style={styles.actionBtn}>
-            <Icon name="reply" size={18} color="#fff" />
-          </TouchableOpacity>
+            {!isMyComment && (
+            <TouchableOpacity onPress={() => onReplyPress(item)} style={styles.actionBtn}>
+                <Icon name="reply" size={18} color="#fff" />
+            </TouchableOpacity>
+            )}
+
           {isMyComment && (
             <>
               <TouchableOpacity onPress={() => onEdit(item)} style={styles.actionBtn}>
@@ -462,16 +465,16 @@ export default function CommentSection({ movieId }) {
     return (
       <View>
         <CommentItem
-          item={{ ...item, children_count: item.children_count ?? (item.replies_preview?.length ?? 0) }}
-          onReplyPress={handleReplyPress}
-          onToggleReplies={() => toggleReplies(item.comment_id)}
-          expanded={replyMeta.expanded}
-          repliesPreview={item.replies_preview}
-          onUpvote={handleUpvote}
-          onDownvote={handleDownvote}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          isMyComment={false /* optional: compare user id to mark editable */}
+            item={{ ...item, children_count: item.children_count ?? (item.replies_preview?.length ?? 0) }}
+            onReplyPress={handleReplyPress}
+            onToggleReplies={() => toggleReplies(item.comment_id)}
+            expanded={replyMeta.expanded}
+            repliesPreview={item.replies_preview}
+            onUpvote={handleUpvote}
+            onDownvote={handleDownvote}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            isMyComment={item.user_id === userId} 
         />
 
         {/* Replies list (when expanded) */}
