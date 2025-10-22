@@ -1,71 +1,77 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  SafeAreaView,
-  StyleSheet,
   View,
   Text,
-  FlatList,
-  ActivityIndicator,
+  StyleSheet,
+  SafeAreaView,
+  TouchableOpacity,
   Image,
+  ActivityIndicator,
   Dimensions,
-  StatusBar,
-  TouchableOpacity
+  FlatList,
+  Animated, // Import the Animated API
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-const TMDB_API_KEY = '802b1fff7ff225605a7378644666662b';
-
-const API_URL = `https://api.themoviedb.org/3/movie/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`;
-
+import { supabase } from '../../pages/TabPages/lib/supabase'; // CORRECTED PATH
 
 const { width } = Dimensions.get('window');
-const posterWidth = (width - 30) / 2; 
 
 const Home = () => {
-  const [movies, setMovies] = useState([]);
+  const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [heroMovie, setHeroMovie] = useState(null);
+  const [popularMovies, setPopularMovies] = useState([]);
+  
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const fetchMovies = async () => {
       try {
-        const response = await fetch(API_URL);
-        if (!response.ok) {
-          throw new Error('Something went wrong!');
+        const { data, error } = await supabase
+          .from('movies')
+          .select(`
+            movie_id, 
+            title, 
+            poster_url, 
+            backdrop_url, 
+            synopsis,
+            movie_genres (
+              genres ( genre_name )
+            )
+          `)
+          .not('backdrop_url', 'is', null)
+          .not('poster_url', 'is', null)
+          .limit(21);
+
+        if (error) throw error;
+        
+        // Check if there's enough data to select the third movie
+        if (data && data.length > 6) {
+          setHeroMovie(data[5]); // Set the third movie (index 2) as the hero
+          setPopularMovies(data); // Use the full list for the grid
+        } else if (data && data.length > 0) {
+          // Fallback to the first movie if there are fewer than 3
+          setHeroMovie(data[0]);
+          setPopularMovies(data);
         }
-        const data = await response.json();
 
-        // The poster_path from the API is just a partial path.
-        // We need to prepend the full TMDb image URL.
-        const moviesWithFullPosterPaths = data.results.map(movie => ({
-          ...movie,
-          full_poster_url: `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-        }));
-
-        setMovies(moviesWithFullPosterPaths);
       } catch (e) {
         setError(e.message);
-        console.error('Error fetching movies:', e);
       } finally {
         setLoading(false);
       }
     };
-
     fetchMovies();
   }, []);
 
-  // This function renders each individual movie poster in the grid.
-  const renderMovieItem = ({ item }) => (
-    <View style={styles.itemContainer}>
-      <Image
-        source={{ uri: item.full_poster_url }}
-        style={styles.poster}
-        resizeMode="cover"
-      />
-    </View>
-  );
-const ScrollingHeader = () => (
-    <Text style={styles.scrollingHeader}>Popular Movies</Text>
+  const ListHeader = () => (
+    <>
+      <FilterBar />
+      {heroMovie && <HeroSection movie={heroMovie} navigation={navigation} />}
+      <Text style={styles.subHeader}>Popular Movies</Text>
+    </>
   );
 
   if (loading) {
@@ -79,88 +85,251 @@ const ScrollingHeader = () => (
   if (error) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <Text style={styles.errorText}>Error: {error}</Text>
-        <Text style={styles.errorText}>Did you add your API Key?</Text>
+        <Text style={styles.errorText}>{error}</Text>
       </SafeAreaView>
     );
   }
-
+  
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      <View style={styles.staticHeader}>
-        <Text style={styles.mainTitle}>Cinema Syndicate</Text>
-        <TouchableOpacity>
-          <Icon name="magnify" size={28} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
+      <StaticHeader navigation={navigation} scrollY={scrollY} />
       <FlatList
-        data={movies}
-        renderItem={renderMovieItem}
-        keyExtractor={(item) => item.id.toString()}
+        ListHeaderComponent={ListHeader}
+        data={popularMovies}
+        renderItem={({ item }) => <MoviePoster item={item} navigation={navigation} />}
+        keyExtractor={(item) => item.movie_id.toString()}
         numColumns={2}
-        ListHeaderComponent={ScrollingHeader}
-        contentContainerStyle={styles.listContainer}
+        contentContainerStyle={{ paddingHorizontal: 5 }}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
       />
     </SafeAreaView>
   );
 };
 
+// --- SUB-COMPONENTS ---
+
+const StaticHeader = ({ navigation, scrollY }) => {
+  const headerBackgroundColor = scrollY.interpolate({
+    inputRange: [0, 50],
+    outputRange: ['transparent', '#14181C'],
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <Animated.View style={[styles.staticHeader, { backgroundColor: headerBackgroundColor }]}>
+        <Text style={styles.mainTitle}>Cinema Syndicate</Text>
+        <TouchableOpacity onPress={() => { /* Handle Search Navigation */ }}>
+            <Icon name="magnify" size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+const FilterBar = () => (
+    <View style={styles.filterBar}>
+        <TouchableOpacity style={styles.filterButtonSelected}>
+            <Text style={styles.filterButtonTextSelected}>Popular Movies</Text>
+        </TouchableOpacity>
+    </View>
+);
+
+const HeroSection = ({ movie, navigation }) => {
+  // Extract genre names from the fetched data
+  const genres = movie.movie_genres.map(mg => mg.genres.genre_name).join(' • ');
+
+  return (
+    <View style={styles.heroWrapper}>
+      <View style={styles.heroContainer}>
+          {movie.poster_url && <Image source={{ uri: movie.poster_url }} style={styles.heroImage} /> }
+          <View style={styles.heroOverlay} />
+          <View style={styles.heroContent}>
+              <Text style={styles.heroTitle} numberOfLines={2}>{movie.title}</Text>
+              <Text style={styles.heroGenres}>{genres}</Text>
+              <View style={styles.heroButtonRow}>
+                  <TouchableOpacity 
+                      style={[styles.heroButton, styles.trailerButton]}
+                      onPress={() => navigation.navigate('MovieDetail', { movieId: movie.movie_id })}
+                  >
+                      <Icon name="play" size={18} color="#000000" />
+                      <Text style={styles.trailerButtonText}>Trailer</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                      style={[styles.heroButton, styles.communityButton]}
+                      onPress={() => navigation.navigate('MovieDetail', { movieId: movie.movie_id })}
+                  >
+                      <Icon name="forum-outline" size={18} color="#FFFFFF" />
+                      <Text style={styles.communityButtonText}>Community</Text>
+                  </TouchableOpacity>
+              </View>
+          </View>
+      </View>
+    </View>
+  );
+};
+
+const MoviePoster = ({ item, navigation }) => (
+    <TouchableOpacity 
+        style={styles.posterContainer}
+        onPress={() => navigation.navigate('MovieDetail', { movieId: item.movie_id })}
+    >
+        {item.poster_url && <Image source={{ uri: item.poster_url }} style={styles.posterImage} /> }
+    </TouchableOpacity>
+);
+
+
+// --- STYLES ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#14181C', // A dark background like Letterboxd
+    backgroundColor: '#14181C',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#14181C',
-    padding: 20,
-  },
-  staticHeader: {
-    backgroundColor: '#252930',
-    paddingVertical: 15,
-    paddingHorizontal: 15,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center', // This centers the title horizontally
-    borderBottomWidth: 1,
-    borderBottomColor: '#14181C'
-  },
-  mainTitle: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  scrollingHeader: {
-    color: '#FFFFFF',
-    fontSize: 22, // Slightly smaller than the main title
-    fontWeight: 'bold',
-    paddingHorizontal: 15,
-    paddingTop: 20,
-    paddingBottom: 15,
-  },
-  listContainer: {
-    paddingHorizontal: 5,
-  },
-  itemContainer: {
-    flex: 1,
-    margin: 5,
-    alignItems: 'center',
-  },
-  poster: {
-    width: posterWidth,
-    height: posterWidth * 1.5, // Standard movie poster aspect ratio
-    borderRadius: 8,
-    backgroundColor: '#2C3440' // A slightly lighter dark color for the placeholder
   },
   errorText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 10,
+    color: 'white',
+    fontSize: 16
+  },
+  staticHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingTop: 10,
+    paddingBottom: 10,
+  },
+  mainTitle: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  filterBar: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    paddingTop: 60, 
+  },
+  filterButtonSelected: {
+    backgroundColor: '#2C3440',
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    alignSelf: 'flex-start',
+  },
+  filterButtonTextSelected: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  subHeader: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+    paddingHorizontal: 15,
+    paddingTop: 15,
+    paddingBottom: 5,
+  },
+  heroWrapper: {
+    paddingHorizontal: 15,
+    paddingBottom: 10,
+  },
+  heroContainer: {
+    width: '100%',
+    height: width * 1.5,
+    justifyContent: 'flex-end',
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#2C3440',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  heroImage: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#2C3440', // Placeholder color
+  },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    // CORRECTED: Use a valid React Native style for a semi-transparent overlay
+    backgroundColor: 'rgba(20, 24, 28, 0.4)',
+  },
+  heroContent: {
+    padding: 20,
+  },
+  heroTitle: {
+    color: 'white',
+    fontSize: 32,
+    fontWeight: 'bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 10,
+  },
+  heroGenres: {
+    color: '#E0E0E0',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  heroButtonRow: {
+      flexDirection: 'row',
+      marginTop: 20,
+  },
+  heroButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 10,
+      borderRadius: 6,
+      flex: 1,
+  },
+  trailerButton: {
+      backgroundColor: 'white',
+      marginRight: 10,
+  },
+  trailerButtonText: {
+      color: 'black',
+      fontWeight: 'bold',
+      marginLeft: 8,
+      fontSize: 14,
+  },
+  communityButton: {
+      backgroundColor: 'rgba(100, 100, 100, 0.7)',
+      marginLeft: 10,
+  },
+  communityButtonText: {
+      color: 'white',
+      fontWeight: 'bold',
+      marginLeft: 8,
+      fontSize: 14,
+  },
+  posterContainer: {
+    flex: 1,
+    margin: 5,
+    maxWidth: '50%',
+    backgroundColor: '#2C3440',
+    borderRadius: 8,
+  },
+  posterImage: {
+    width: '100%',
+    aspectRatio: 2/3,
+    borderRadius: 8,
   },
 });
 
 export default Home;
+
