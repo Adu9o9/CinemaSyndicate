@@ -8,7 +8,7 @@ import UniversalNavi from './navigation/Universal';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { setSession } from './src/Redux/AuthSlice';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { StatusBar } from 'expo-status-bar';
 
 export default function App() {
   const dispatch = useDispatch()
@@ -26,8 +26,12 @@ export default function App() {
     retrieveUser()
   }, []);
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: 'black' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#14181C' }}>
       <View style={styles.container}>
+        <StatusBar
+        backgroundColor="#14181C" // Status bar background
+        barStyle="light-content" // Light text/icons for dark background
+      />
         <NavigationContainer>
           <UniversalNavi />
         </NavigationContainer>

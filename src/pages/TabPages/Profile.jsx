@@ -16,6 +16,9 @@ import {
 import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 // Corrected import path - ensure this is correct for your project structure
 import { supabase } from '../../pages/TabPages/lib/supabase'; // Assuming path is correct
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { clearSession } from '../../Redux/AuthSlice';
+import { useDispatch } from 'react-redux';
 
 // --- Reusable Components ---
 const MovieList = ({ title, movies }) => (
@@ -57,7 +60,7 @@ const CommentList = ({ title, comments }) => {
       console.warn("Could not navigate: No Movie ID found on this comment.");
     }
   };
-
+ 
   return (
     <View style={styles.listContainer}>
         <Text style={styles.sectionTitle}>{title}</Text>
@@ -100,7 +103,7 @@ const ProfilePage = () => {
   const route = useRoute();
   const navigation = useNavigation();
   const profileUserId = route.params?.userId; 
-
+  const dispatch = useDispatch()
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null); 
   const [recentActivity, setRecentActivity] = useState([]); 
@@ -318,6 +321,9 @@ const ProfilePage = () => {
    // --- Logout Function ---
    const handleLogout = async () => {
        setLoading(true); 
+       await AsyncStorage.removeItem("user")
+        await AsyncStorage.removeItem("name")
+        dispatch(clearSession())
        const { error } = await supabase.auth.signOut();
        if (error) {
            Alert.alert("Logout Error", error.message);

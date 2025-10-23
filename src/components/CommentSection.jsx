@@ -256,8 +256,8 @@ const CommentItem = ({
 
 export default function CommentSection({ movieId }) {
 
-    const user = useSelector(state => state.auth.user);
-    const userName = useSelector(state => state.auth.name);
+  const user = useSelector(state => state.auth.user);
+  const userName = useSelector(state => state.auth.name);
   const userId = user?.id;
   console.warn(userId) 
   const [topComments, setTopComments] = useState([]);
@@ -275,6 +275,121 @@ export default function CommentSection({ movieId }) {
   useEffect(() => {
     loadTopLevel();
   }, [movieId]);
+
+  // Realtime listener for comments
+  useEffect(() => {
+  if (!movieId) return;
+
+  // Simple in-memory profile cache
+  const profileCache = {};
+
+  const getProfile = async (userId) => {
+    if (profileCache[userId]) return profileCache[userId];
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('user_id, username, profile_picture_url')
+      .eq('user_id', userId)
+      .single();
+    if (error) {
+      console.error('Profile fetch failed', error);
+      return null;
+    }
+    profileCache[userId] = data;
+    return data;
+  };
+
+  const channel = supabase
+    .channel('realtime-comments-' + movieId)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'community_comments',
+      },
+      async (payload) => {
+        const { eventType, new: newComment, old: oldComment } = payload;
+
+        // Ignore events triggered by current user
+        if (newComment?.user_id === userId) return;
+
+        const profile = await getProfile(newComment.user_id);
+        const commentWithProfile = { 
+          ...newComment, 
+          profiles: profile ? [profile] : [], 
+          replies_preview: [] 
+        };
+
+        // --- INSERT ---
+        if (eventType === 'INSERT') {
+          if (!newComment.parent_comment_id) {
+            // top-level comment
+            setTopComments(prev => [commentWithProfile, ...prev]);
+          } else {
+            // reply
+            setReplyState(prev => {
+              const p = prev[newComment.parent_comment_id] || { replies: [], expanded: true };
+              return {
+                ...prev,
+                [newComment.parent_comment_id]: {
+                  ...p,
+                  replies: [...(p.replies || []), commentWithProfile],
+                  expanded: true,
+                },
+              };
+            });
+
+            // also update replies_preview for top-level comment
+            setTopComments(prev =>
+              prev.map(c =>
+                c.comment_id === newComment.parent_comment_id
+                  ? { ...c, replies_preview: [...(c.replies_preview || []), commentWithProfile] }
+                  : c
+              )
+            );
+          }
+        }
+
+        // --- UPDATE ---
+        if (eventType === 'UPDATE') {
+          setTopComments(prev =>
+            prev.map(c => (c.comment_id === newComment.comment_id ? { ...c, ...newComment } : c))
+          );
+          setReplyState(prev => {
+            const updated = { ...prev };
+            Object.keys(updated).forEach(k => {
+              const r = updated[k]?.replies || [];
+              updated[k].replies = r.map(rep =>
+                rep.comment_id === newComment.comment_id ? { ...rep, ...newComment } : rep
+              );
+            });
+            return updated;
+          });
+        }
+
+        // --- DELETE ---
+        if (eventType === 'DELETE') {
+          setTopComments(prev => prev.filter(c => c.comment_id !== oldComment.comment_id));
+          setReplyState(prev => {
+            const updated = { ...prev };
+            Object.keys(updated).forEach(k => {
+              updated[k].replies = updated[k]?.replies?.filter(
+                r => r.comment_id !== oldComment.comment_id
+              );
+            });
+            return updated;
+          });
+        }
+      }
+    )
+    .subscribe();
+
+  return () => supabase.removeChannel(channel);
+}, [movieId]);
+
+
+
+
 
   const loadTopLevel = useCallback(async () => {
     if (!movieId) return;
