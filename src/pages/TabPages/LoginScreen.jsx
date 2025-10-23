@@ -45,9 +45,15 @@ const LoginScreen = () => {
 
       if (error) throw error;
 
+      const { data: name, error: nameErr } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('user_id',data.session.user.id)
+      console.log("name after signing:",name[0].username)
       Alert.alert('Success', 'Logged in successfully!');
-      dispatch(setSession(data.session));
+      dispatch(setSession({user:data.session,name:name[0].username}));
       await AsyncStorage.setItem("user", JSON.stringify(data.session));
+      await AsyncStorage.setItem("name", name[0].username)
     } catch (error) {
       Alert.alert('Error', error.message || 'Failed to sign in');
     } finally {
