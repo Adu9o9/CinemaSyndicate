@@ -9,11 +9,11 @@ import {
   ActivityIndicator,
   Dimensions,
   FlatList,
-  Animated, // Import the Animated API
+  Animated,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { supabase } from '../../pages/TabPages/lib/supabase'; // CORRECTED PATH
+import { supabase } from '../../pages/TabPages/lib/supabase'; // Adjust path if needed
 
 const { width } = Dimensions.get('window');
 
@@ -21,8 +21,8 @@ const Home = () => {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [heroMovie, setHeroMovie] = useState(null);
-  const [popularMovies, setPopularMovies] = useState([]);
+  const [heroMovies, setHeroMovies] = useState([]); // Array for the slider
+  const [popularMovies, setPopularMovies] = useState([]); // Array for the grid
   
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -43,18 +43,40 @@ const Home = () => {
           `)
           .not('backdrop_url', 'is', null)
           .not('poster_url', 'is', null)
-          .limit(21);
+          .limit(40); // Fetch 10 for hero + 20 for grid + buffer for filtering
 
         if (error) throw error;
         
-        // Check if there's enough data to select the third movie
-        if (data && data.length > 6) {
-          setHeroMovie(data[5]); // Set the third movie (index 2) as the hero
-          setPopularMovies(data); // Use the full list for the grid
-        } else if (data && data.length > 0) {
-          // Fallback to the first movie if there are fewer than 3
-          setHeroMovie(data[0]);
-          setPopularMovies(data);
+        if (data && data.length > 10) {
+          setHeroMovies(data.slice(0, 10)); // First 10 movies for the hero slider
+          
+          // --- New Title-Based Filtering Logic (More Robust) ---
+          
+          // Convert blocked titles to lowercase for case-insensitive matching
+          const blockedTitles = [
+            "fib the truth", 
+            "Female Teacher"
+          ];
+
+          // 1. Get all potential popular movies
+          const popularListBase = data.slice(10, 40); 
+          
+          // 2. Filter out the blocked titles, ignoring case and whitespace
+          const filteredList = popularListBase.filter(movie => {
+            // Ensure movie.title exists, convert to lowercase, and trim whitespace
+            const movieTitle = movie.title ? movie.title.toLowerCase().trim() : '';
+            return !blockedTitles.includes(movieTitle);
+          });
+
+          // 3. Take the first 20 from the clean list
+          const finalPopularList = filteredList.slice(0, 16);
+          
+          setPopularMovies(finalPopularList);
+
+        } else if (data) {
+          // Fallback if we get less data
+          setHeroMovies(data.slice(0, 1));
+          setPopularMovies(data.slice(1));
         }
 
       } catch (e) {
@@ -69,7 +91,7 @@ const Home = () => {
   const ListHeader = () => (
     <>
       <FilterBar />
-      {heroMovie && <HeroSection movie={heroMovie} navigation={navigation} />}
+      {heroMovies.length > 0 && <HeroSlider heroMovies={heroMovies} navigation={navigation} />}
       <Text style={styles.subHeader}>Popular Movies</Text>
     </>
   );
@@ -92,7 +114,7 @@ const Home = () => {
   
   return (
     <SafeAreaView style={styles.container}>
-      <StaticHeader navigation={navigation} scrollY={scrollY} />
+      <StaticHeader scrollY={scrollY} />
       <FlatList
         ListHeaderComponent={ListHeader}
         data={popularMovies}
@@ -112,19 +134,26 @@ const Home = () => {
 
 // --- SUB-COMPONENTS ---
 
-const StaticHeader = ({ navigation, scrollY }) => {
+const StaticHeader = ({ scrollY }) => {
+  // Animate background color from transparent to dark grey
   const headerBackgroundColor = scrollY.interpolate({
     inputRange: [0, 50],
-    outputRange: ['transparent', '#14181C'],
+    outputRange: ['transparent', '#14181C'], // Fades to dark background
+    extrapolate: 'clamp',
+  });
+
+  // Animate title color from white to light grey
+  const titleColor = scrollY.interpolate({
+    inputRange: [0, 50],
+    outputRange: ['#FFFFFF', '#9AB'], // Fades from white to grey
     extrapolate: 'clamp',
   });
 
   return (
     <Animated.View style={[styles.staticHeader, { backgroundColor: headerBackgroundColor }]}>
-        <Text style={styles.mainTitle}>Cinema Syndicate</Text>
-        <TouchableOpacity onPress={() => { /* Handle Search Navigation */ }}>
-            <Icon name="magnify" size={28} color="#FFFFFF" />
-        </TouchableOpacity>
+        <Animated.Text style={[styles.mainTitle, { color: titleColor }]}>
+          Cinema Syndicate
+        </Animated.Text>
     </Animated.View>
   );
 };
@@ -137,14 +166,60 @@ const FilterBar = () => (
     </View>
 );
 
-const HeroSection = ({ movie, navigation }) => {
-  // Extract genre names from the fetched data
-  const genres = movie.movie_genres.map(mg => mg.genres.genre_name).join(' • ');
+// --- New Hero Slider Component ---
+const HeroSlider = ({ heroMovies, navigation }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const flatListRef = useRef(null);
+
+  // This effect handles the automatic, looping scroll
+  useEffect(() => {
+    if (!heroMovies || heroMovies.length === 0) return;
+
+    const timer = setInterval(() => {
+      setCurrentIndex(prevIndex => {
+        const nextIndex = prevIndex === heroMovies.length - 1 ? 0 : prevIndex + 1;
+        
+        flatListRef.current?.scrollToIndex({
+          index: nextIndex,
+          animated: true,
+        });
+
+        return nextIndex;
+      });
+    }, 1500); // 3-second delay
+
+    return () => clearInterval(timer); // Clean up the timer
+  }, [heroMovies]);
 
   return (
     <View style={styles.heroWrapper}>
+      <FlatList
+        ref={flatListRef}
+        data={heroMovies}
+        renderItem={({ item }) => (
+          <HeroSlide movie={item} navigation={navigation} />
+        )}
+        keyExtractor={(item) => item.movie_id.toString()}
+        horizontal
+        pagingEnabled // This makes it snap to each slide
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={(e) => {
+          const index = Math.floor(e.nativeEvent.contentOffset.x / width);
+          setCurrentIndex(index);
+        }}
+      />
+    </View>
+  );
+};
+
+// --- New Hero Slide Component (for one slide) ---
+const HeroSlide = ({ movie, navigation }) => {
+  const genres = movie.movie_genres.map(mg => mg.genres.genre_name).join(' • ');
+
+  return (
+    <View style={styles.heroSlide}>
       <View style={styles.heroContainer}>
-          {movie.poster_url && <Image source={{ uri: movie.poster_url }} style={styles.heroImage} /> }
+          {movie.poster_url && <Image source={{ uri: movie.poster_url }} style={styles.heroImage} />}
           <View style={styles.heroOverlay} />
           <View style={styles.heroContent}>
               <Text style={styles.heroTitle} numberOfLines={2}>{movie.title}</Text>
@@ -204,21 +279,21 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 1,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center', // Center the title
     alignItems: 'center',
     paddingHorizontal: 15,
     paddingTop: 10,
     paddingBottom: 10,
   },
   mainTitle: {
-    color: 'white',
-    fontSize: 20,
+    // color is now animated
+    fontSize: 22, // Increased font size
     fontWeight: 'bold',
   },
   filterBar: {
     paddingHorizontal: 15,
     paddingVertical: 10,
-    paddingTop: 60, 
+    paddingTop: 60, // Pushes content below the floating header
   },
   filterButtonSelected: {
     backgroundColor: '#2C3440',
@@ -242,27 +317,29 @@ const styles = StyleSheet.create({
   heroWrapper: {
     paddingHorizontal: 15,
     paddingBottom: 10,
-  },
-  heroContainer: {
-    width: '100%',
-    height: width * 1.5,
-    justifyContent: 'flex-end',
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#2C3440',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
     elevation: 10,
   },
+  heroSlide: {
+    width: width - 30, // Full width minus the horizontal padding
+    alignItems: 'center',
+  },
+  heroContainer: {
+    width: '100%',
+    height: (width - 30) * 1.5,
+    justifyContent: 'flex-end',
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#2C3440',
+  },
   heroImage: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#2C3440', // Placeholder color
   },
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
-    // CORRECTED: Use a valid React Native style for a semi-transparent overlay
     backgroundColor: 'rgba(20, 24, 28, 0.4)',
   },
   heroContent: {
