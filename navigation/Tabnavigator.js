@@ -47,7 +47,28 @@ const Tabnavigator = () => {
       <Tab.Screen name="Home" component={Home} />
       <Tab.Screen name="Search" component={Search} />
       <Tab.Screen name="Random" component={RandomMovie} />
-      <Tab.Screen name="Profile" component={Profile} />
+      <Tab.Screen 
+        name="Profile" 
+        component={Profile} 
+        listeners={({ navigation, route }) => ({
+          tabPress: (e) => {
+            // Check if the tab is already focused
+            const isFocused = navigation.isFocused();
+
+            if (isFocused) {
+              // If we're already on the Profile tab, but maybe on someone
+              // else's profile, we want to force-navigate to our own.
+              
+              // Prevent the default action
+              e.preventDefault();
+
+              // Reset the stack for the 'Profile' tab to its root screen
+              // and pass 'undefined' params, so it loads the logged-in user.
+              navigation.navigate('Profile', { userId: undefined });
+            }
+          },
+        })}
+      />
     </Tab.Navigator>
   );
 };
