@@ -115,7 +115,11 @@ const Search = () => {
 
   // Renders a single user for the vertical results list
   const renderUserItem = ({ item }) => (
-    <TouchableOpacity style={styles.userItem}>
+    <TouchableOpacity 
+      style={styles.userItem}
+      // --- THIS IS THE NEW NAVIGATION LOGIC ---
+      onPress={() => navigation.navigate('Profile', { userId: item.user_id })}
+    >
       <Image 
         source={{ uri: item.profile_picture_url || 'https://placehold.co/80x80/2C3440/FFFFFF?text=User' }} 
         style={styles.userImage} 
